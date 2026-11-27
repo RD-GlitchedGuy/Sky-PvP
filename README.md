@@ -5,7 +5,9 @@ Ein einfaches Kit-Plugin für Paper 26.3. Es verwendet normale Minecraft-Inventa
 ## Befehle
 
 - `/kits` – Kit-Menü öffnen und ein Kit anklicken.
-- `/kit give mace` – Mace-PvP-Kit direkt ausrüsten.
+- `/kits give mace` – Mace-PvP-Kit selbst ausrüsten.
+- `/kits give @p mace` – Kit an den nächsten Spieler vergeben; nur OPs und Command-Blöcke dürfen ein Ziel angeben.
+- `/kit give <name>` – ältere Kurzform zum Selbstausrüsten.
 - `/kit save <name>` – aktuelles Inventar, Rüstung und Offhand als neues Kit speichern (OP oder `skykits.admin`).
 - `/kit delete <name>` – gespeichertes Kit entfernen (OP oder `skykits.admin`).
 

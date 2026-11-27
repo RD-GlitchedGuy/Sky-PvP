@@ -19,6 +19,7 @@ import org.bukkit.potion.PotionType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Comparator;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,8 +38,15 @@ public final class SkyKitsPlugin extends JavaPlugin implements Listener {
         }
         Bukkit.getPluginManager().registerEvents(this, this);
         getCommand("kits").setExecutor((sender, command, label, args) -> {
+            if (args.length > 0 && args[0].equalsIgnoreCase("give")) {
+                return giveKitCommand(sender, Arrays.copyOfRange(args, 1, args.length));
+            }
             if (!(sender instanceof Player player)) {
-                sender.sendMessage("Dieser Befehl ist nur im Spiel verfügbar.");
+                sender.sendMessage("§eVerwendung: /kits give @p <Kitname>");
+                return true;
+            }
+            if (args.length > 0) {
+                player.sendMessage("§cVerwendung: /kits oder /kits give <Kitname>");
                 return true;
             }
             openKitMenu(player);
@@ -56,14 +64,7 @@ public final class SkyKitsPlugin extends JavaPlugin implements Listener {
             return true;
         }
         String action = args[0].toLowerCase(Locale.ROOT);
-        if (action.equals("give") && args.length == 2) {
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage("Dieser Befehl ist nur im Spiel verfügbar.");
-                return true;
-            }
-            if (!giveKit(player, args[1])) player.sendMessage("§cDieses Kit gibt es nicht.");
-            return true;
-        }
+        if (action.equals("give")) return giveKitCommand(sender, Arrays.copyOfRange(args, 1, args.length));
         if (!action.equals("save") && !action.equals("delete")) {
             sender.sendMessage("§cVerwendung: /kit <give|save|delete> <name>");
             return true;
@@ -98,6 +99,45 @@ public final class SkyKitsPlugin extends JavaPlugin implements Listener {
             saveConfig();
             sender.sendMessage("§aKit §f" + id + " §awurde gelöscht.");
         }
+        return true;
+    }
+
+    private boolean giveKitCommand(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length == 1) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("§cGib als Command-Block ein Ziel an, zum Beispiel: /kits give @p mace");
+                return true;
+            }
+            if (!giveKit(player, args[0])) player.sendMessage("§cDieses Kit gibt es nicht.");
+            return true;
+        }
+        if (args.length != 2) {
+            sender.sendMessage("§cVerwendung: /kits give <Kitname> oder /kits give <Ziel> <Kitname>");
+            return true;
+        }
+        if (sender instanceof Player player && !player.isOp()) {
+            player.sendMessage("§cNur OPs dürfen ein Kit an ausgewählte Spieler vergeben.");
+            return true;
+        }
+
+        List<Player> targets;
+        try {
+            targets = Bukkit.selectEntities(sender, args[0]).stream()
+                    .filter(Player.class::isInstance)
+                    .map(Player.class::cast)
+                    .toList();
+        } catch (IllegalArgumentException exception) {
+            sender.sendMessage("§cUngültiger Spieler-Selektor: " + args[0]);
+            return true;
+        }
+        if (targets.isEmpty()) {
+            sender.sendMessage("§cDer Selektor hat keinen Online-Spieler gefunden.");
+            return true;
+        }
+        int given = 0;
+        for (Player target : targets) if (giveKit(target, args[1])) given++;
+        if (given == 0) sender.sendMessage("§cDieses Kit gibt es nicht.");
+        else sender.sendMessage("§aKit §f" + args[1] + " §aan " + given + " Spieler vergeben.");
         return true;
     }
 

@@ -5,11 +5,11 @@ api-version: '26.3'
 description: Ein Geyser-kompatibles Kit-Auswahlmenü für Sky PvP.
 commands:
   kits:
-    description: Öffnet das Kit-Menü.
-    usage: /kits
+    description: Öffnet das Kit-Menü oder vergibt ein Kit.
+    usage: /kits [give <Kitname>|give <Ziel> <Kitname>]
   kit:
     description: Verwaltet und vergibt Kits.
-    usage: /kit <give|save|delete> [Kit]
+    usage: /kit <give|save|delete> [Ziel] <Kit>
 permissions:
   skykits.admin:
     description: Erlaubt das Speichern und Löschen von Kits.
