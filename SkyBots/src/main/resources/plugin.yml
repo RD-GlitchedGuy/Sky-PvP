@@ -1,0 +1,7 @@
+name: SkyBots
+version: v26.0
+main: de.skypvp.bots.SkyBotsPlugin
+api-version: '26.3'
+depend: [Citizens]
+description: Spieler-Bots mit fairer PvP-KI und Verwaltungsmenü für Paper.
+

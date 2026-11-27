@@ -1,5 +1,7 @@
 # SkyKits
 
+Zusätzlich liegt das eigenständige Plugin **SkyBots** im Ordner [`SkyBots`](SkyBots/README.md). Es wird separat als eigene JAR gebaut und benötigt Citizens auf dem Server.
+
 Ein einfaches Kit-Plugin für Paper 26.3. Es verwendet normale Minecraft-Inventar-Menüs und Items, daher ist keine Geyser-Sonderintegration nötig.
 
 ## Befehle
