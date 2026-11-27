@@ -11,7 +11,7 @@ Pro Spieler sind höchstens fünf eigene Bots möglich. Im Menü kannst du dich 
 
 ## Fairness
 
-Die KI greift nur bei Sichtkontakt und innerhalb normaler Nahkampfreichweite an. Ihre Angriffsgeschwindigkeit richtet sich nach der Waffe. Crystal-Angriffe benötigen ein vorhandenes End-Crystal-Item, eine gültige Obsidian- oder Bedrock-Fläche und normale Platzierungsreichweite. Die Explosion verwendet Minecrafts normale End-Crystal-Explosion.
+Die KI greift nur bei Sichtkontakt und innerhalb normaler Nahkampfreichweite an. Ihre Angriffsgeschwindigkeit richtet sich nach der Waffe. Beim Crystal-PvP verbraucht der Bot ein End-Crystal-Item und platziert eine echte End-Crystal-Entität auf Obsidian oder Bedrock. Anschließend schlägt er den Kristall innerhalb normaler Nahkampfreichweite; Paper/Minecraft wickelt die normale Kristall-Explosion, den Schaden und den Rückstoß ab.
 
 Die Bots bewegen sich mit Citizens' Wegfindung. Das ist eine serverseitige NPC-KI und kein vollständig simulierter Minecraft-Client. Crystal-PvP ist eine einfache taktische Routine und spielt nicht auf dem Niveau eines menschlichen Crystal-PvP-Spielers.
 
