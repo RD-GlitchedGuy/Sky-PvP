@@ -1,5 +1,5 @@
 name: SkyKits
-version: 1.0.0
+version: v26.0
 main: de.skypvp.kits.SkyKitsPlugin
 api-version: '26.3'
 description: Ein Geyser-kompatibles Kit-Auswahlmenü für Sky PvP.
@@ -14,4 +14,3 @@ permissions:
   skykits.admin:
     description: Erlaubt das Speichern und Löschen von Kits.
     default: op
-

@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "de.skypvp"
-version = "1.0.0"
+version = "v26.0"
 
 repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
@@ -21,4 +21,3 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release.set(25)
 }
-

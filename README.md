@@ -17,5 +17,4 @@ Das eingebaute `mace`-Kit folgt dem Verlauf und dem Screenshot: Diamantrüstung 
 
 Der GitHub-Workflow unter `.github/workflows/build-plugin.yml` baut die JAR automatisch bei jedem Push und bei Pull Requests. Du kannst ihn auch auf GitHub unter **Actions → Build SkyKits → Run workflow** von Hand starten. Nach erfolgreichem Build liegt `SkyKits-JAR` als herunterladbares Artefakt beim Workflow-Lauf.
 
-Lokal brauchst du JDK 25 und Gradle. Im Projektordner `gradle build` ausführen; die Plugin-Datei liegt danach unter `build/libs/SkyKits-1.0.0.jar`. Die JAR kommt in den `plugins`-Ordner des Paper-Servers.
-
+Lokal brauchst du JDK 25 und Gradle. Im Projektordner `gradle build` ausführen; die Plugin-Datei liegt danach unter `build/libs/SkyKits-v26.0.jar`. Die JAR kommt in den `plugins`-Ordner des Paper-Servers.
