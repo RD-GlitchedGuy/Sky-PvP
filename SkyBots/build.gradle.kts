@@ -6,6 +6,7 @@ group = "de.skypvp"
 version = "v26.0"
 
 repositories {
+    mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://maven.citizensnpcs.co/repo")
 }
