@@ -1,12 +1,5 @@
 package de.skypvp.bots;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
-import io.papermc.paper.command.brigadier.CommandSourceStack;
-import io.papermc.paper.command.brigadier.Commands;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
@@ -18,6 +11,8 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.Command;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -43,9 +38,10 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
-public final class SkyBotsPlugin extends JavaPlugin implements Listener {
+public final class SkyBotsPlugin extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
     private static final int MAX_BOTS_PER_PLAYER = 5;
     private static final int[] LIST_SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
     private static final int[] LOADOUT_SLOTS = {45, 46, 47, 48, 49};
@@ -66,10 +62,10 @@ public final class SkyBotsPlugin extends JavaPlugin implements Listener {
         npcRegistry = CitizensAPI.getNPCRegistry();
         loadBots();
         Bukkit.getPluginManager().registerEvents(this, this);
-        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-            event.registrar().register(createBotCommand().build(), "Erstellt und verwaltet deine PvP-Bots");
-            event.registrar().register(createBotsCommand().build(), "Öffnet deine Bot-Übersicht");
-        });
+        Objects.requireNonNull(getCommand("bot"), "Der Befehl 'bot' fehlt in plugin.yml").setExecutor(this);
+        Objects.requireNonNull(getCommand("bot")).setTabCompleter(this);
+        Objects.requireNonNull(getCommand("bots"), "Der Befehl 'bots' fehlt in plugin.yml").setExecutor(this);
+        Objects.requireNonNull(getCommand("bots")).setTabCompleter(this);
         aiTask = Bukkit.getScheduler().runTaskTimer(this, this::tickBots, 1L, 1L);
     }
 
@@ -81,45 +77,57 @@ public final class SkyBotsPlugin extends JavaPlugin implements Listener {
         sessions.clear();
     }
 
-    private LiteralArgumentBuilder<CommandSourceStack> createBotCommand() {
-        return Commands.literal("bot")
-                .executes(context -> openBotList(context.getSource().getSender()))
-                .then(Commands.literal("spawn")
-                        .then(Commands.argument("name", StringArgumentType.word())
-                                .executes(context -> spawnBot(context, StringArgumentType.getString(context, "name")))));
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("bots") || args.length == 0) {
+            openBotList(sender);
+            return true;
+        }
+        if (command.getName().equalsIgnoreCase("bot") && args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
+            if (!(sender instanceof Player owner)) {
+                sender.sendMessage("§cBots können nur von Spielern erstellt werden.");
+                return true;
+            }
+            spawnBot(owner, args[1]);
+            return true;
+        }
+        sender.sendMessage("§cVerwendung: /bot spawn <Name> oder /bots");
+        return true;
     }
 
-    private LiteralArgumentBuilder<CommandSourceStack> createBotsCommand() {
-        return Commands.literal("bots").executes(context -> openBotList(context.getSource().getSender()));
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (command.getName().equalsIgnoreCase("bot") && args.length == 1) {
+            return "spawn".startsWith(args[0].toLowerCase(Locale.ROOT)) ? List.of("spawn") : List.of();
+        }
+        if (command.getName().equalsIgnoreCase("bot") && args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
+            return List.of();
+        }
+        return List.of();
     }
 
-    private int openBotList(CommandSender sender) {
+    private boolean openBotList(CommandSender sender) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("§cNur Spieler können ihr Bot-Menü öffnen.");
-            return 0;
+            return false;
         }
         openListMenu(player);
-        return Command.SINGLE_SUCCESS;
+        return true;
     }
 
-    private int spawnBot(CommandContext<CommandSourceStack> context, String name) {
-        CommandSender sender = context.getSource().getSender();
-        if (!(sender instanceof Player owner)) {
-            sender.sendMessage("§cBots können nur von Spielern erstellt werden.");
-            return 0;
-        }
+    private boolean spawnBot(Player owner, String name) {
         if (!name.matches("[A-Za-z0-9_-]{1,16}")) {
             owner.sendMessage("§cDer Name muss 1 bis 16 Zeichen lang sein und darf nur Buchstaben, Zahlen, _ oder - enthalten.");
-            return 0;
+            return false;
         }
         List<BotData> owned = botsFor(owner.getUniqueId());
         if (owned.size() >= MAX_BOTS_PER_PLAYER) {
             owner.sendMessage("§cDu kannst höchstens fünf Bots besitzen.");
-            return 0;
+            return false;
         }
         if (owned.stream().anyMatch(bot -> bot.name.equalsIgnoreCase(name))) {
             owner.sendMessage("§cDu hast bereits einen Bot mit diesem Namen.");
-            return 0;
+            return false;
         }
 
         NPC npc = null;
@@ -136,12 +144,12 @@ public final class SkyBotsPlugin extends JavaPlugin implements Listener {
             npcRegistry.saveToStore();
             owner.sendMessage("§aBot §f" + name + " §aerstellt. Stelle ihn jetzt im Menü ein.");
             openSettingsMenu(owner, data);
-            return Command.SINGLE_SUCCESS;
+            return true;
         } catch (RuntimeException exception) {
             if (npc != null) npc.destroy();
             getLogger().warning("Bot-Erstellung fehlgeschlagen: " + exception.getMessage());
             owner.sendMessage("§cDer Bot konnte nicht erstellt werden. Prüfe, ob Citizens korrekt geladen ist.");
-            return 0;
+            return false;
         }
     }
 

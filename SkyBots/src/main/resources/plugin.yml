@@ -4,4 +4,11 @@ main: de.skypvp.bots.SkyBotsPlugin
 api-version: '26.3'
 depend: [Citizens]
 description: Spieler-Bots mit fairer PvP-KI und Verwaltungsmenü für Paper.
+commands:
+  bot:
+    description: Erstellt und verwaltet deine PvP-Bots
+    usage: /bot [spawn <Name>]
+    aliases: [skybots]
+  bots:
+    description: Öffnet deine Bot-Übersicht
 
