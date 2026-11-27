@@ -1,0 +1,11 @@
+name: SkyBotRecorder
+version: v26.0
+main: de.skypvp.recorder.SkyBotRecorderPlugin
+api-version: '26.3'
+description: Zeichnet die eigenen serverseitig sichtbaren Bewegungen und PvP-Aktionen als JSONL auf.
+commands:
+  record:
+    description: Zeichnet deine Bewegungen und Aktionen für SkyBots auf
+    usage: /record <start [Name]|stop|status>
+    aliases: [skyrecord]
+
