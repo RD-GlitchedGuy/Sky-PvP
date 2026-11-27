@@ -7,6 +7,8 @@ version = "v26.0"
 
 repositories {
     mavenCentral()
+    maven("https://repo.alessiodp.com/releases/")
+    mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://maven.citizensnpcs.co/repo")
 }
