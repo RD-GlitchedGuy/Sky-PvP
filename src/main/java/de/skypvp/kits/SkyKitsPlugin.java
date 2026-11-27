@@ -2,6 +2,18 @@ package de.skypvp.kits;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
+import io.papermc.paper.command.brigadier.argument.resolvers.selector.EntitySelectorArgumentResolver;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -20,10 +32,10 @@ import org.bukkit.potion.PotionType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Comparator;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public final class SkyKitsPlugin extends JavaPlugin implements Listener {
     private static final String MENU_TITLE = "§8Kit-Auswahl";
@@ -38,51 +50,32 @@ public final class SkyKitsPlugin extends JavaPlugin implements Listener {
             saveConfig();
         }
         Bukkit.getPluginManager().registerEvents(this, this);
-        getCommand("kits").setExecutor((sender, command, label, args) -> {
-            if (args.length > 0 && args[0].equalsIgnoreCase("give")) {
-                return giveKitCommand(sender, Arrays.copyOfRange(args, 1, args.length));
-            }
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage("§eVerwendung: /kits give @p <Kitname>");
-                return true;
-            }
-            if (args.length > 0) {
-                player.sendMessage("§cVerwendung: /kits oder /kits give <Kitname>");
-                return true;
-            }
-            openKitMenu(player);
-            return true;
-        });
-        getCommand("kits").setTabCompleter((sender, command, alias, args) -> completeKitsCommand(sender, args, true));
-        getCommand("kit").setExecutor((sender, command, label, args) -> handleKitCommand(sender, args));
-        getCommand("kit").setTabCompleter((sender, command, alias, args) -> completeKitsCommand(sender, args, false));
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
+                event.registrar().register(createKitsCommand(), "Kit-System für Sky PvP", List.of("kits")));
     }
 
-    private List<String> completeKitsCommand(CommandSender sender, String[] args, boolean kitsAlias) {
-        if (args.length == 1) {
-            if (kitsAlias) return matching(List.of("give"), args[0]);
-            List<String> actions = sender.hasPermission("skykits.admin")
-                    ? List.of("give", "save", "delete") : List.of("give");
-            return matching(actions, args[0]);
-        }
-
-        if (args[0].equalsIgnoreCase("give")) {
-            if (args.length == 2) {
-                List<String> options = new java.util.ArrayList<>(kitIds());
-                if (!(sender instanceof Player player) || player.isOp()) {
-                    options.addAll(sender instanceof Player ? List.of("@p", "@a", "@r", "@s") : List.of("@p", "@a", "@r"));
-                    Bukkit.getOnlinePlayers().stream().map(Player::getName).forEach(options::add);
-                }
-                return matching(options, args[1]);
-            }
-            if (args.length == 3 && (!(sender instanceof Player player) || player.isOp())) {
-                return matching(kitIds(), args[2]);
-            }
-        } else if (!kitsAlias && args.length == 2 && args[0].equalsIgnoreCase("delete")
-                && sender.hasPermission("skykits.admin")) {
-            return matching(kitIds(), args[1]);
-        }
-        return List.of();
+    private LiteralArgumentBuilder<CommandSourceStack> createKitsCommand() {
+        return Commands.literal("kit")
+                .executes(context -> openMenu(context.getSource().getSender()))
+                .then(Commands.literal("give")
+                        .then(Commands.argument("kit", StringArgumentType.word())
+                                .suggests((context, builder) -> suggestKitIds(builder))
+                                .executes(context -> giveKitToSender(context)))
+                        .then(Commands.argument("targets", ArgumentTypes.entities())
+                                .requires(context -> maySelectTargets(context.getSender()))
+                                .then(Commands.argument("kit", StringArgumentType.word())
+                                        .suggests((context, builder) -> suggestKitIds(builder))
+                                        .executes(this::giveKitToTargets))))
+                .then(Commands.literal("save")
+                        .requires(context -> context.getSender().hasPermission("skykits.admin"))
+                        .then(Commands.argument("name", StringArgumentType.word())
+                                .suggests((context, builder) -> suggestKitIds(builder))
+                                .executes(context -> saveKitFromSender(context))))
+                .then(Commands.literal("delete")
+                        .requires(context -> context.getSender().hasPermission("skykits.admin"))
+                        .then(Commands.argument("name", StringArgumentType.word())
+                                .suggests((context, builder) -> suggestKitIds(builder))
+                                .executes(context -> deleteKit(context))));
     }
 
     private List<String> kitIds() {
@@ -90,48 +83,73 @@ public final class SkyKitsPlugin extends JavaPlugin implements Listener {
         return section == null ? List.of() : section.getKeys(false).stream().sorted().toList();
     }
 
-    private List<String> matching(List<String> options, String prefix) {
-        String lowerPrefix = prefix.toLowerCase(Locale.ROOT);
-        return options.stream().filter(option -> option.toLowerCase(Locale.ROOT).startsWith(lowerPrefix))
-                .distinct().toList();
+    private CompletableFuture<Suggestions> suggestKitIds(SuggestionsBuilder builder) {
+        String prefix = builder.getRemainingLowerCase();
+        for (String id : kitIds()) {
+            if (id.toLowerCase(Locale.ROOT).startsWith(prefix)) builder.suggest(id);
+        }
+        return builder.buildFuture();
     }
 
-    private boolean handleKitCommand(org.bukkit.command.CommandSender sender, String[] args) {
-        if (args.length == 0) {
-            sender.sendMessage("§e/kits §7öffnet die Kit-Auswahl.");
-            sender.sendMessage("§e/kit give <name> §7gibt dir ein Kit.");
-            sender.sendMessage("§e/kit save <name> §7speichert dein aktuelles Inventar als Kit.");
-            sender.sendMessage("§e/kit delete <name> §7löscht ein Kit.");
-            return true;
+    private boolean maySelectTargets(CommandSender sender) {
+        return !(sender instanceof Player player) || player.isOp();
+    }
+
+    private int openMenu(CommandSender sender) {
+        if (sender instanceof Player player) openKitMenu(player);
+        else sender.sendMessage("§eVerwendung: /kits give <Ziel> <Kitname>");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int giveKitToSender(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cGib als Command-Block ein Ziel an: /kits give @p mace");
+            return 0;
         }
-        String action = args[0].toLowerCase(Locale.ROOT);
-        if (action.equals("give")) return giveKitCommand(sender, Arrays.copyOfRange(args, 1, args.length));
-        if (!action.equals("save") && !action.equals("delete")) {
-            sender.sendMessage("§cVerwendung: /kit <give|save|delete> <name>");
-            return true;
+        String id = StringArgumentType.getString(context, "kit");
+        if (!giveKit(player, id)) sender.sendMessage("§cDieses Kit gibt es nicht.");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int giveKitToTargets(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSender sender = context.getSource().getSender();
+        EntitySelectorArgumentResolver resolver = context.getArgument("targets", EntitySelectorArgumentResolver.class);
+        List<Player> targets = resolver.resolve(context.getSource()).stream()
+                .filter(Player.class::isInstance).map(Player.class::cast).toList();
+        if (targets.isEmpty()) {
+            sender.sendMessage("§cDer Selector hat keine Spieler ausgewählt.");
+            return 0;
         }
-        if (!sender.hasPermission("skykits.admin")) {
-            sender.sendMessage("§cDafür hast du keine Berechtigung.");
-            return true;
+        String id = StringArgumentType.getString(context, "kit");
+        int given = 0;
+        for (Player target : targets) if (giveKit(target, id)) given++;
+        if (given == 0) sender.sendMessage("§cDieses Kit gibt es nicht.");
+        else sender.sendMessage("§aKit §f" + id + " §aan " + given + " Spieler vergeben.");
+        return given;
+    }
+
+    private int saveKitFromSender(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cNur Spieler können ihr Inventar als Kit speichern.");
+            return 0;
         }
-        if (args.length != 2) {
-            sender.sendMessage("§cVerwendung: /kit " + action + " <name>");
-            return true;
-        }
-        String id = normalizeId(args[1]);
+        String id = normalizeId(StringArgumentType.getString(context, "name"));
         if (id.isBlank()) {
             sender.sendMessage("§cDer Kit-Name ist ungültig.");
-            return true;
+            return 0;
         }
+        savePlayerKit(id, player);
+        sender.sendMessage("§aKit §f" + id + " §awurde gespeichert. Es erscheint in /kits.");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int deleteKit(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        String id = normalizeId(StringArgumentType.getString(context, "name"));
         String path = "kits." + id;
-        if (action.equals("save")) {
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage("Nur Spieler können ihr Inventar als Kit speichern.");
-                return true;
-            }
-            savePlayerKit(id, player);
-            sender.sendMessage("§aKit §f" + id + " §awurde gespeichert. Es erscheint in /kits.");
-        } else if (!getConfig().isConfigurationSection(path)) {
+        if (!getConfig().isConfigurationSection(path)) {
             sender.sendMessage("§cDieses Kit gibt es nicht.");
         } else if (id.equals("mace")) {
             sender.sendMessage("§cDas eingebaute Kit „mace“ kann nicht gelöscht werden.");
@@ -140,46 +158,7 @@ public final class SkyKitsPlugin extends JavaPlugin implements Listener {
             saveConfig();
             sender.sendMessage("§aKit §f" + id + " §awurde gelöscht.");
         }
-        return true;
-    }
-
-    private boolean giveKitCommand(org.bukkit.command.CommandSender sender, String[] args) {
-        if (args.length == 1) {
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage("§cGib als Command-Block ein Ziel an, zum Beispiel: /kits give @p mace");
-                return true;
-            }
-            if (!giveKit(player, args[0])) player.sendMessage("§cDieses Kit gibt es nicht.");
-            return true;
-        }
-        if (args.length != 2) {
-            sender.sendMessage("§cVerwendung: /kits give <Kitname> oder /kits give <Ziel> <Kitname>");
-            return true;
-        }
-        if (sender instanceof Player player && !player.isOp()) {
-            player.sendMessage("§cNur OPs dürfen ein Kit an ausgewählte Spieler vergeben.");
-            return true;
-        }
-
-        List<Player> targets;
-        try {
-            targets = Bukkit.selectEntities(sender, args[0]).stream()
-                    .filter(Player.class::isInstance)
-                    .map(Player.class::cast)
-                    .toList();
-        } catch (IllegalArgumentException exception) {
-            sender.sendMessage("§cUngültiger Spieler-Selektor: " + args[0]);
-            return true;
-        }
-        if (targets.isEmpty()) {
-            sender.sendMessage("§cDer Selektor hat keinen Online-Spieler gefunden.");
-            return true;
-        }
-        int given = 0;
-        for (Player target : targets) if (giveKit(target, args[1])) given++;
-        if (given == 0) sender.sendMessage("§cDieses Kit gibt es nicht.");
-        else sender.sendMessage("§aKit §f" + args[1] + " §aan " + given + " Spieler vergeben.");
-        return true;
+        return Command.SINGLE_SUCCESS;
     }
 
     private void openKitMenu(Player player) {
