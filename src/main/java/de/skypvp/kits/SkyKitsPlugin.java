@@ -6,6 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -52,7 +53,47 @@ public final class SkyKitsPlugin extends JavaPlugin implements Listener {
             openKitMenu(player);
             return true;
         });
+        getCommand("kits").setTabCompleter((sender, command, alias, args) -> completeKitsCommand(sender, args, true));
         getCommand("kit").setExecutor((sender, command, label, args) -> handleKitCommand(sender, args));
+        getCommand("kit").setTabCompleter((sender, command, alias, args) -> completeKitsCommand(sender, args, false));
+    }
+
+    private List<String> completeKitsCommand(CommandSender sender, String[] args, boolean kitsAlias) {
+        if (args.length == 1) {
+            if (kitsAlias) return matching(List.of("give"), args[0]);
+            List<String> actions = sender.hasPermission("skykits.admin")
+                    ? List.of("give", "save", "delete") : List.of("give");
+            return matching(actions, args[0]);
+        }
+
+        if (args[0].equalsIgnoreCase("give")) {
+            if (args.length == 2) {
+                List<String> options = new java.util.ArrayList<>(kitIds());
+                if (!(sender instanceof Player player) || player.isOp()) {
+                    options.addAll(sender instanceof Player ? List.of("@p", "@a", "@r", "@s") : List.of("@p", "@a", "@r"));
+                    Bukkit.getOnlinePlayers().stream().map(Player::getName).forEach(options::add);
+                }
+                return matching(options, args[1]);
+            }
+            if (args.length == 3 && (!(sender instanceof Player player) || player.isOp())) {
+                return matching(kitIds(), args[2]);
+            }
+        } else if (!kitsAlias && args.length == 2 && args[0].equalsIgnoreCase("delete")
+                && sender.hasPermission("skykits.admin")) {
+            return matching(kitIds(), args[1]);
+        }
+        return List.of();
+    }
+
+    private List<String> kitIds() {
+        var section = getConfig().getConfigurationSection("kits");
+        return section == null ? List.of() : section.getKeys(false).stream().sorted().toList();
+    }
+
+    private List<String> matching(List<String> options, String prefix) {
+        String lowerPrefix = prefix.toLowerCase(Locale.ROOT);
+        return options.stream().filter(option -> option.toLowerCase(Locale.ROOT).startsWith(lowerPrefix))
+                .distinct().toList();
     }
 
     private boolean handleKitCommand(org.bukkit.command.CommandSender sender, String[] args) {
