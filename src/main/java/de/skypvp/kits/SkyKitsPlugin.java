@@ -51,7 +51,7 @@ public final class SkyKitsPlugin extends JavaPlugin implements Listener {
         }
         Bukkit.getPluginManager().registerEvents(this, this);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
-                event.registrar().register(createKitsCommand(), "Kit-System für Sky PvP", List.of("kits")));
+                event.registrar().register(createKitsCommand().build(), "Kit-System für Sky PvP", List.of("kits")));
     }
 
     private LiteralArgumentBuilder<CommandSourceStack> createKitsCommand() {
